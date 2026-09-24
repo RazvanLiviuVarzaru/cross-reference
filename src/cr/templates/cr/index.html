@@ -80,6 +80,9 @@
 <div class="section table-section">
   <h2 style="color: #4e629a;">Results</h2>
   <div class="table-container">
+    {% if error %}
+        <p class="search-error" style="color: #b00020;">{{ error }}</p>
+    {% endif %}
     {% if test_runs or test_failures or builders %}
         <div class="table-filters">
             <input id="failureFilter" placeholder="Failure Text">
@@ -128,7 +131,7 @@
             </thead>
         {% for test in test_runs %}
             <tr class="expandable">
-                <td> [<a href="https://buildbot.mariadb.org/#/builders/{{ test.test_run_id.platform_name }}/builds/{{ test.test_run_id.bbnum }}" > Build details </a>] </td>
+                <td> [<a href="https://buildbot.mariadb.org/#/builders/{{ test.builder_id }}/builds/{{ test.test_run_id.bbnum }}" > Build details </a>] </td>
                 <td>{{test.test_run_id.branch}}</td>
                 <td>{{test.test_run_id.revision| slice:9}}</td>
                 <td>{{test.platform}}</td>
@@ -150,7 +153,7 @@
             </tr>
         {% endfor %}
         </table>
-    {% else %}
+    {% elif not error %}
         <p>No failures found.</p>
     {% endif %}
   </div>

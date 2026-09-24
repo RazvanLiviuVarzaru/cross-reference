@@ -59,6 +59,10 @@ TEMPLATES = [
     },
 ]
 
+# Seconds a search may spend in the buildbot database. Keep it below the
+# gunicorn worker timeout (-t 60), see README "Search time limit".
+BUILDBOT_SEARCH_TIME_LIMIT = float(os.environ.get('DJANGO_DB_MAX_STATEMENT_TIME_BB') or 50)
+
 # Database
 DATABASES = {
     'default': {
@@ -76,6 +80,13 @@ DATABASES = {
         'PASSWORD': os.environ['DJANGO_DB_USER_PASSWORD_BB'],
         'HOST': os.environ['DJANGO_DB_HOST_BB'],
         'PORT': os.environ['DJANGO_DB_PORT_BB'],
+        # Abort queries server side before gunicorn kills the worker (-t 60),
+        # otherwise the query keeps running after the client is gone. Searches
+        # also split this time between their queries, see cr/models.py.
+        'OPTIONS': {
+            'init_command': 'SET SESSION max_statement_time=%g'
+                            % BUILDBOT_SEARCH_TIME_LIMIT,
+        },
     }
 }
 

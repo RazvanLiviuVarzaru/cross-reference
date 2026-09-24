@@ -1,11 +1,13 @@
+from django.db import OperationalError
 from django.shortcuts import render
-from rest_framework import viewsets
+from rest_framework import status, viewsets
 from rest_framework.response import Response
 
 # Create your views here.
 from django.http import HttpResponse
 
-from .models import select_test_failures, TestFailure
+from .models import (select_test_failures, attach_builder_ids, is_statement_timeout,
+                     SEARCH_TIMEOUT_MESSAGE, TestFailure)
 from .serializers import TestFailureSerializer, APIQueryParamsSerializer
 
 
@@ -27,17 +29,21 @@ def index(request):
         "sort_order",
     ]
 
-    if request.method == "GET":
-        qd = request.GET
-    elif request.method == "POST":
-        qd = request.POST
+    # HEAD (uptime checks, link previews) is answered like GET
+    qd = request.POST if request.method == "POST" else request.GET
 
     if qd == {}:
         return render(request, "cr/index.html", {})
 
-    all_failures_list = select_test_failures(qd)
-
-    context = all_failures_list
+    context = {}
+    try:
+        test_failures = select_test_failures(qd)["test_runs"]
+        attach_builder_ids(test_failures)
+        context["test_runs"] = test_failures
+    except OperationalError as e:
+        if not is_statement_timeout(e):
+            raise
+        context["error"] = SEARCH_TIMEOUT_MESSAGE
 
     for f in available_filters:
         if f in qd:
@@ -79,9 +85,15 @@ class TestFailureViewSet(viewsets.ReadOnlyModelViewSet):
         for key in self.expected_filters:
             if key not in filters:
                 filters[key] = ""
-        test_failures = select_test_failures(filters)
-        serializer = TestFailureSerializer(test_failures["test_runs"], many=True)
-        return Response(serializer.data)
+        try:
+            test_failures = select_test_failures(filters)
+            serializer = TestFailureSerializer(test_failures["test_runs"], many=True)
+            return Response(serializer.data)
+        except OperationalError as e:
+            if not is_statement_timeout(e):
+                raise
+            return Response({"detail": SEARCH_TIMEOUT_MESSAGE},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 def health_check(request):

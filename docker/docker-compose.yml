@@ -21,6 +21,7 @@ services:
       - DJANGO_DB_USER_PASSWORD_BB
       - DJANGO_DB_HOST_BB
       - DJANGO_DB_PORT_BB
+      - DJANGO_DB_MAX_STATEMENT_TIME_BB
       - DJANGO_LOG_LEVEL
     command: gunicorn crossreference.wsgi:application --bind 0.0.0.0:8000 -w 6 -t 60
                       --capture-output
